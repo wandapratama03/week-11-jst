@@ -3,10 +3,11 @@ var r = express.Router();
 
 // load pre-trained model
 const model = require('./sdk/model.js');
+const cls_model = require('./sdk/cls_model.js');
 
 // Bot Setting
 const TelegramBot = require('node-telegram-bot-api');
-const token = '1832911184:AAE76Zkj9VNFzS0ABOmPvR9qjdP5GAk4xdA'
+const token = '1877669223:AAFhUivKLRH-FVt7CeEuJEOfcV-sibI1xiY'
 const bot = new TelegramBot(token, {polling: true});
 
 
@@ -16,25 +17,19 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(
         msg.chat.id,
         `hello ${msg.chat.first_name}, welcome...\n
-        click /predict`
+        click  /predict to know about i and v`
     );   
 });
 
-bot.onText(/\/menu/, (msg) => { 
-    console.log(msg)
-    bot.sendMessage(
-        msg.chat.id,
-        `this is your main menu`
-    );   
-});
 
-state = 0
+
+state = 0;
 bot.onText(/\/predict/, (msg) => { 
     bot.sendMessage(
         msg.chat.id,
-        `masukan nilai i|v contohnya 4|3`
+        `input nilai i|v example 4|3`
     );   
-    state = 1
+    state = 1;
 });
 
 bot.on('message', (msg) => {
@@ -48,15 +43,23 @@ bot.on('message', (msg) => {
                 parseFloat(s[1])
             ]
         ).then((jres)=>{
-            console.log(jres);
-            bot.sendMessage(
-                msg.chat.id,
-                `nilai v yang diprediksi adalah ${jres[0]} volt`
-            );   
-            bot.sendMessage(
-                msg.chat.id,
-                `nilai p yang diprediksi adalah ${jres[1]} watt`
-            );   
+            v = parseFloat(jres[0])
+            p = parseFloat(jres[1])
+            
+            cls_model.classify([parseFloat(s[0]), parseFloat(s[1]), p, v]).then((jres2) =>{
+                bot.sendMessage(
+                    msg.chat.id,
+                    `nilai v yang diprediksi adalah ${jres[0]} volt`
+                );   
+                bot.sendMessage(
+                    msg.chat.id,
+                    `nilai p yang diprediksi adalah ${jres[1]} watt`
+                );
+                bot.sendMessage(
+                    msg.chat.id,
+                    `klasifikasi tegangan ${jres2}`
+                );   
+            }) 
         })
     }else{
         state = 0
@@ -75,4 +78,25 @@ r.get('/prediction/:i/:r', function(req, res, next) {
     })
 });
 
+// routers
+r.get('/classify/:i/:r', function(req, res, next) {
+      model.predict(
+        [
+                parseFloat(req.params.i), //string nofloat
+                parseFloat(req.params.r),
+        ]
+       ).then((jres)=>{
+           cls_model.classify(
+               [
+                parseFloat(req.params.i), //string nofloat
+                parseFloat(req.params.r),
+                parseFloat(jres[0]),
+                parseFloat(jres[1])
+               ]
+               ).then((jres_)=>{
+                res.json(jres_)
+           })
+      })
+});
+        
 module.exports = r;
